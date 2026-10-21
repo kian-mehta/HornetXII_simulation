@@ -5,26 +5,58 @@
 - Ubuntu 24.04
 - ROS 2 Jazzy
 - Gazebo Harmonic
-- Git
-- `colcon` and ROS dependency tools
+- Git, colcon, rosdep, and vcstool
 
-### 1. Clone the repository and DAVE submodule
+### 1. Clone the Hornet XII repository
 
 ```bash
 cd ~
-git clone --recurse-submodules https://github.com/kian-mehta/HornetXII_simulation.git
+git clone https://github.com/kian-mehta/HornetXII_simulation.git
 cd HornetXII_simulation
 ```
 
-The `--recurse-submodules` flag downloads the DAVE repository into `src/dave` at the commit recorded by this project.
+### 2. Install DAVE manually
 
-If you already cloned the project without its submodules, run:
+DAVE is not included in this repository and must be cloned separately.
+
+From the workspace root:
 
 ```bash
-git submodule update --init --recursive
+cd src
+
+git clone -b ros2 https://github.com/IOES-Lab/dave.git
+cd dave
+
+git checkout d2121a5b4457361e60106aaa029b0a448977d70e
 ```
 
-### 2. Install build tools
+This checks out the specific DAVE revision used by our working simulation.
+
+Verify:
+
+```bash
+git rev-parse HEAD
+```
+
+The output should be:
+
+```text
+d2121a5b4457361e60106aaa029b0a448977d70e
+```
+
+Return to the workspace root:
+
+```bash
+cd ../..
+```
+
+### 3. Install dependencies
+
+Follow the dependency installation instructions in the [DAVE ROS 2 Native Installation Manual](https://dave-ros2.notion.site/Native-Local-Installation-Manual-7c6d7be83a4947d28ae3e3eb6b7de5ee).
+
+**Important:** The older Jazzy `.repos` download command may return HTTP 404. Do not run that command; DAVE has already been cloned manually in Step 2.
+
+Install the standard ROS 2 development tools if needed:
 
 ```bash
 sudo apt update
@@ -34,18 +66,19 @@ sudo apt install -y \
   python3-vcstool
 ```
 
-Initialize rosdep if necessary:
+Initialize rosdep if it has not been initialized previously:
 
 ```bash
 sudo rosdep init
+```
+
+Then:
+
+```bash
 rosdep update
 ```
 
-If `rosdep init` reports that it has already been initialized, continue to `rosdep update`.
-
-### 3. Install dependencies
-
-From the workspace root:
+Install dependencies declared by the workspace packages:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -53,16 +86,19 @@ source /opt/ros/jazzy/setup.bash
 rosdep install \
   --from-paths src \
   --ignore-src \
-  --recursive \
   --rosdistro jazzy \
-  -y
+  -r -y
 ```
 
-Some DAVE dependencies may require additional setup. If rosdep reports unresolved dependencies, resolve those before building.
+If dependencies remain unresolved, install them according to the DAVE documentation before building.
 
 ### 4. Build the workspace
 
+From `~/HornetXII_simulation`:
+
 ```bash
+source /opt/ros/jazzy/setup.bash
+
 CMAKE_BUILD_PARALLEL_LEVEL=2 colcon build \
   --symlink-install \
   --executor sequential \
@@ -70,19 +106,31 @@ CMAKE_BUILD_PARALLEL_LEVEL=2 colcon build \
   --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 ```
 
-This uses the current workspace's build configuration and skips the three multibeam sonar packages.
-
-### 5. Run the SAUVC simulation
+Once the build succeeds:
 
 ```bash
 source install/setup.bash
+```
+
+### 5. Run the simulation
+
+From the workspace root:
+
+```bash
 bash run.sh
 ```
 
-Alternatively, launch it directly:
+Alternatively:
 
 ```bash
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
 ros2 launch sauvc_sim sauvc.launch.py
 ```
 
-Stop any previously running Gazebo simulation before starting another.
+The simulation should launch the DAVE underwater environment, existing AUV test robot, SAUVC pool, and gate.
+
+### Notes
+
+- Always run `run.sh` from the workspace root.
+- Stop any existing Gazebo simulation before launching another instance.
